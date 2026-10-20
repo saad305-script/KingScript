@@ -1,272 +1,341 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
-
-local LP = Players.LocalPlayer
-local Cam = Workspace.CurrentCamera
+local P = game:GetService("Players")
+local T = game:GetService("TweenService")
+local U = game:GetService("UserInputService")
+local R = game:GetService("RunService")
+local LP = P.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui")
+local Cam = workspace.CurrentCamera
 
-local T = {
-    Black = Color3.fromRGB(10,10,12), Dark = Color3.fromRGB(20,20,25), Light = Color3.fromRGB(35,35,45),
-    Gold = Color3.fromRGB(255,190,0), Glow = Color3.fromRGB(255,215,0), White = Color3.fromRGB(240,240,240), Gray = Color3.fromRGB(150,150,150)
-}
+for _,v in pairs(PG:GetChildren()) do if v.Name=="KingGUI" or v.Name=="QuickUI" then v:Destroy() end end
 
-local S = { ESP = false, Aim = false, Silent = false, Part = "Head", Range = 300, Smooth = 0.15 }
-local Target, ESPTab, RenderConn, Tween, SilentConn = nil, {}, nil, nil, nil
+task.wait(3)
 
-local function Stop()
-    if RenderConn then RenderConn:Disconnect() RenderConn = nil end
-    if SilentConn then SilentConn:Disconnect() SilentConn = nil end
-    if Tween then Tween:Cancel() Tween = nil end
-    Target = nil
+local aLock, nRec, aSm, fR, wChk = false, false, 0.15, 120, true
+local lootEspEnabled = false
+local noSpreadEnabled = false
+local healthEspEnabled = false
+
+-- Animation
+local SG = Instance.new("ScreenGui", PG) SG.Name="KingGUI" SG.IgnoreGuiInset=true
+local F = Instance.new("Frame", SG) F.Size=UDim2.new(1,0,1,0) F.BackgroundColor3=Color3.new(0,0,0) F.BackgroundTransparency=1
+local Cr = Instance.new("TextLabel", F) Cr.Size=UDim2.new(1,0,0,150) Cr.Position=UDim2.new(0,0,0.25,0) Cr.BackgroundTransparency=1 Cr.Text="👑" Cr.TextColor3=Color3.fromRGB(255,215,0) Cr.TextSize=150 Cr.Font=Enum.Font.GothamBlack Cr.TextTransparency=1
+local Tx = Instance.new("TextLabel", F) Tx.Size=UDim2.new(1,0,0,150) Tx.Position=UDim2.new(0,0,0.45,0) Tx.BackgroundTransparency=1 Tx.Text="" Tx.TextColor3=Color3.fromRGB(255,215,0) Tx.TextSize=80 Tx.Font=Enum.Font.GothamBlack
+
+T:Create(F, TweenInfo.new(0.4), {BackgroundTransparency=0}):Play() task.wait(0.5)
+for _,c in utf8.codes("King Script") do
+    Tx.Text = Tx.Text .. utf8.char(c)
+    if c ~= 32 then Tx.TextSize = 95 T:Create(Tx, TweenInfo.new(0.1), {TextSize=80}):Play() end
+    task.wait(0.12)
+end
+task.wait(0.4) Cr.Position=UDim2.new(0,0,-0.2,0) Cr.TextTransparency=0 Cr.TextSize=200
+T:Create(Cr, TweenInfo.new(0.7, Enum.EasingStyle.Bounce), {Position=UDim2.new(0,0,0.25,0), TextSize=150}):Play()
+task.wait(2) T:Create(F, TweenInfo.new(0.6), {BackgroundTransparency=1}):Play() T:Create(Tx, TweenInfo.new(0.6), {TextTransparency=1}):Play() T:Create(Cr, TweenInfo.new(0.6), {TextTransparency=1}):Play() task.wait(0.7) SG:Destroy()
+
+-- UI
+local UI = Instance.new("ScreenGui", PG) UI.Name="KingGUI" UI.ResetOnSpawn=false
+local Mn = Instance.new("Frame", UI) Mn.Size=UDim2.new(0,450,0,360) Mn.Position=UDim2.new(0.5,-225,0.5,-180) Mn.BackgroundColor3=Color3.fromRGB(10,10,12) Mn.Active=true
+Instance.new("UICorner", Mn).CornerRadius=UDim.new(0,10)
+local St = Instance.new("UIStroke", Mn) St.Color=Color3.fromRGB(212,175,55) St.Thickness=2
+
+local Tb = Instance.new("Frame", Mn) Tb.Size=UDim2.new(1,0,0,40) Tb.BackgroundColor3=Color3.fromRGB(20,20,22)
+local Ti = Instance.new("TextLabel", Tb) Ti.Size=UDim2.new(1,-40,1,0) Ti.Position=UDim2.new(0,10,0,0) Ti.BackgroundTransparency=1 Ti.Text="👑 King Script" Ti.TextColor3=Color3.fromRGB(255,235,150) Ti.Font=Enum.Font.GothamBold Ti.TextSize=16 Ti.TextXAlignment=Enum.TextXAlignment.Left
+local MB = Instance.new("TextButton", Tb) MB.Size=UDim2.new(0,24,0,24) MB.Position=UDim2.new(1,-32,0,8) MB.BackgroundColor3=Color3.fromRGB(40,35,20) MB.Text="-" MB.TextColor3=Color3.fromRGB(255,235,150) MB.Font=Enum.Font.GothamBold Instance.new("UICorner", MB).CornerRadius=UDim.new(0,6)
+
+local Ct = Instance.new("Frame", Mn) Ct.Size=UDim2.new(1,0,1,-40) Ct.Position=UDim2.new(0,0,0,40) Ct.BackgroundTransparency=1
+
+-- Sidebar
+local Sb = Instance.new("Frame", Ct) Sb.Size=UDim2.new(0,110,1,-20) Sb.Position=UDim2.new(0,10,0,10) Sb.BackgroundColor3=Color3.fromRGB(15,15,18) Sb.BorderSizePixel=0 Instance.new("UICorner", Sb).CornerRadius=UDim.new(0,8)
+
+local HB = Instance.new("TextButton", Sb) HB.Size=UDim2.new(1,-10,0,30) HB.Position=UDim2.new(0,5,0,5) HB.BackgroundColor3=Color3.fromRGB(35,30,15) HB.Text="Home" HB.TextColor3=Color3.fromRGB(255,235,150) HB.TextSize=12 HB.Font=Enum.Font.GothamBold Instance.new("UICorner", HB).CornerRadius=UDim.new(0,6)
+
+local EB = Instance.new("TextButton", Sb) EB.Size=UDim2.new(1,-10,0,30) EB.Position=UDim2.new(0,5,0,40) EB.BackgroundColor3=Color3.fromRGB(20,20,22) EB.Text="كشف اماكن" EB.TextColor3=Color3.fromRGB(200,200,200) EB.TextSize=11 EB.Font=Enum.Font.GothamBold Instance.new("UICorner", EB).CornerRadius=UDim.new(0,6)
+
+local Pg = Instance.new("ScrollingFrame", Ct) Pg.Size=UDim2.new(1,-140,1,-20) Pg.Position=UDim2.new(0,130,0,10) Pg.BackgroundColor3=Color3.fromRGB(15,15,18) Pg.BorderSizePixel=0 Pg.AutomaticCanvasSize=Enum.AutomaticSize.Y Pg.ScrollBarThickness=3 Pg.ScrollBarImageColor3=Color3.fromRGB(212,175,55)
+Instance.new("UICorner", Pg).CornerRadius=UDim.new(0,8)
+
+-- Drag & Min
+local drag, dIn, dSt, sPs
+Tb.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=true dSt=i.Position sPs=Mn.Position end end)
+Tb.InputChanged:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch then dIn=i end end)
+U.InputChanged:Connect(function(i) if i==dIn and drag then local d=i.Position-dSt Mn.Position=UDim2.new(sPs.X.Scale, sPs.X.Offset+d.X, sPs.Y.Scale, sPs.Y.Offset+d.Y) end end)
+U.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=false end end)
+local min=false MB.MouseButton1Click:Connect(function() min=not min if min then MB.Text="+" Ct.Visible=false T:Create(Mn,TweenInfo.new(0.3),{Size=UDim2.new(0,450,0,40)}):Play() else MB.Text="-" Ct.Visible=true T:Create(Mn,TweenInfo.new(0.3),{Size=UDim2.new(0,450,0,360)}):Play() end end)
+
+-- Float Button
+local Q = Instance.new("ScreenGui", PG) Q.Name="QuickUI" Q.ResetOnSpawn=false
+local FB = Instance.new("TextButton", Q) FB.Size=UDim2.new(0,60,0,60) FB.Position=UDim2.new(0.5,-30,0.5,-30) FB.BackgroundColor3=Color3.fromRGB(60,10,10) FB.Text="AIM\nOFF" FB.TextColor3=Color3.new(1,1,1) FB.TextSize=12 FB.Font=Enum.Font.GothamBold Instance.new("UICorner",FB).CornerRadius=UDim.new(1,0) local FSt=Instance.new("UIStroke",FB) FSt.Color=Color3.fromRGB(212,175,55) FSt.Thickness=2
+
+-- متغيرات التزامن
+local AimToggleBtn = nil
+local IsAimOn = false
+
+-- دالة موحدة لتحديث حالة الأيم لوك في كل مكان
+local function SyncAimLock(state)
+    IsAimOn = state
+    aLock = state
+    
+    -- 1. تحديث الزر العائم
+    if FB then
+        FB.Text = state and "AIM\nON" or "AIM\nOFF"
+        T:Create(FB, TweenInfo.new(0.2), {BackgroundColor3 = state and Color3.fromRGB(10,80,10) or Color3.fromRGB(60,10,10)}):Play()
+    end
+    
+    -- 2. تحديث زر الواجهة (إذا كان موجود)
+    if AimToggleBtn and AimToggleBtn.Parent then
+        AimToggleBtn.Text = state and "ON" or "OFF"
+        T:Create(AimToggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = state and Color3.fromRGB(10,80,10) or Color3.fromRGB(60,10,10)}):Play()
+    end
 end
 
-local function GetTarget()
-    local c, d = nil, S.Range
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local h = p.Character:FindFirstChildOfClass("Humanoid")
-            if h and h.Health > 0 then
-                local pt = p.Character:FindFirstChild(S.Part)
-                if pt then
-                    local _, on = Cam:WorldToViewportPoint(pt.Position)
-                    if on then
-                        local dist = (Cam.CFrame.Position - pt.Position).Magnitude
-                        if dist < d then d = dist c = p.Character end
+-- زر التوجل المخصص للأيم لوك
+local function CreateAimToggle(yPos)
+    local f = Instance.new("Frame", Pg)
+    f.Size = UDim2.new(1,-20,0,35)
+    f.Position = UDim2.new(0,10,0,yPos)
+    f.BackgroundColor3 = Color3.fromRGB(20,20,22)
+    Instance.new("UICorner",f).CornerRadius = UDim.new(0,6)
+
+    local l = Instance.new("TextLabel", f)
+    l.Size = UDim2.new(1,-60,1,0)
+    l.Position = UDim2.new(0,10,0,0)
+    l.BackgroundTransparency = 1
+    l.Text = "Aim Lock"
+    l.TextColor3 = Color3.new(1,1,1)
+    l.TextSize = 13
+    l.Font = Enum.Font.GothamBold
+    l.TextXAlignment = Enum.TextXAlignment.Left
+
+    local b = Instance.new("TextButton", f)
+    b.Size = UDim2.new(0,40,0,22)
+    b.Position = UDim2.new(1,-50,0.5,-11)
+    b.BackgroundColor3 = IsAimOn and Color3.fromRGB(10,80,10) or Color3.fromRGB(60,10,10)
+    b.Text = IsAimOn and "ON" or "OFF"
+    b.TextColor3 = Color3.new(1,1,1)
+    b.TextSize = 11
+    b.Font = Enum.Font.GothamBold
+    Instance.new("UICorner",b).CornerRadius = UDim.new(0,11)
+
+    b.MouseButton1Click:Connect(function()
+        SyncAimLock(not IsAimOn)
+    end)
+    
+    AimToggleBtn = b
+end
+
+-- ربط الزر العائم
+local fd, fIn, fS, fP, cTg = false, nil, nil, nil, true
+FB.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then fd=true fS=i.Position fP=FB.Position cTg=true task.delay(0.2,function() if fd then cTg=false end end) end end)
+FB.InputChanged:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch then fIn=i end end)
+U.InputChanged:Connect(function(i) if i==fIn and fd then local d=i.Position-fS if math.abs(d.X)>5 or math.abs(d.Y)>5 then cTg=false FB.Position=UDim2.new(fP.X.Scale,fP.X.Offset+d.X,fP.Y.Scale,fP.Y.Offset+d.Y) end end end)
+FB.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then fd=false if cTg then SyncAimLock(not IsAimOn) end end end)
+
+-- ربط زر E
+U.InputBegan:Connect(function(i,g) if not g and i.KeyCode==Enum.KeyCode.E then SyncAimLock(not IsAimOn) end end)
+
+local function Tog(txt, y, c)
+    local f=Instance.new("Frame",Pg) f.Size=UDim2.new(1,-20,0,35) f.Position=UDim2.new(0,10,0,y) f.BackgroundColor3=Color3.fromRGB(20,20,22) Instance.new("UICorner",f).CornerRadius=UDim.new(0,6)
+    local l=Instance.new("TextLabel",f) l.Size=UDim2.new(1,-60,1,0) l.Position=UDim2.new(0,10,0,0) l.BackgroundTransparency=1 l.Text=txt l.TextColor3=Color3.new(1,1,1) l.TextSize=13 l.Font=Enum.Font.GothamBold l.TextXAlignment=Enum.TextXAlignment.Left
+    local b=Instance.new("TextButton",f) b.Size=UDim2.new(0,40,0,22) b.Position=UDim2.new(1,-50,0.5,-11) b.BackgroundColor3=Color3.fromRGB(60,10,10) b.Text="OFF" b.TextColor3=Color3.new(1,1,1) b.TextSize=11 b.Font=Enum.Font.GothamBold Instance.new("UICorner",b).CornerRadius=UDim.new(0,11)
+    local s=false b.MouseButton1Click:Connect(function() s=not s b.Text=s and "ON" or "OFF" T:Create(b,TweenInfo.new(0.2),{BackgroundColor3=s and Color3.fromRGB(10,80,10) or Color3.fromRGB(60,10,10)}):Play() c(s) end)
+end
+
+local function Sl(txt, y, mn, mx, df, c)
+    local f=Instance.new("Frame",Pg) f.Size=UDim2.new(1,-20,0,45) f.Position=UDim2.new(0,10,0,y) f.BackgroundColor3=Color3.fromRGB(20,20,22) Instance.new("UICorner",f).CornerRadius=UDim.new(0,6)
+    local l=Instance.new("TextLabel",f) l.Size=UDim2.new(1,-20,0,18) l.Position=UDim2.new(0,10,0,4) l.BackgroundTransparency=1 l.Text=txt..": "..tostring(df) l.TextColor3=Color3.fromRGB(255,235,150) l.TextSize=12 l.Font=Enum.Font.GothamBold l.TextXAlignment=Enum.TextXAlignment.Left
+    local bg=Instance.new("Frame",f) bg.Size=UDim2.new(1,-20,0,6) bg.Position=UDim2.new(0,10,0,28) bg.BackgroundColor3=Color3.fromRGB(40,40,45) Instance.new("UICorner",bg).CornerRadius=UDim.new(0,3)
+    local fl=Instance.new("Frame",bg) fl.Size=UDim2.new((df-mn)/(mx-mn),0,1,0) fl.BackgroundColor3=Color3.fromRGB(212,175,55)
+    local drg=false bg.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drg=true end end)
+    U.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drg=false end end)
+    U.InputChanged:Connect(function(i) if drg and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then local p=math.clamp((i.Position.X-bg.AbsolutePosition.X)/bg.AbsoluteSize.X,0,1) fl.Size=UDim2.new(p,0,1,0) local v=math.floor((mn+(mx-mn)*p)*100)/100 l.Text=txt..": "..tostring(v) c(v) end end)
+end
+
+local function LoadHome()
+    for _,v in pairs(Pg:GetChildren()) do v:Destroy() end
+    CreateAimToggle(10)
+    Sl("Smoothness", 55, 0.01, 0.5, 0.15, function(v) aSm=v end)
+    Sl("FOV", 110, 50, 400, 120, function(v) fR=v end)
+    Tog("No Recoil", 165, function(s) nRec=s end)
+    Tog("Wall Check", 210, function(s) wChk=s end)
+    Tog("No Spread", 255, function(s) noSpreadEnabled=s end)
+end
+
+local function LoadESP()
+    for _,v in pairs(Pg:GetChildren()) do v:Destroy() end
+    Tog("كشف عادي (أسماء)", 10, function(s) lootEspEnabled = s end)
+    Tog("كشف الدم (Health)", 55, function(s) healthEspEnabled = s end)
+    Tog("كشف اللوت (Loot)", 100, function(s) lootEspEnabled = s end)
+end
+
+LoadHome()
+
+local function resetBtns()
+    T:Create(HB,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(20,20,22)}):Play()
+    T:Create(EB,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(20,20,22)}):Play()
+end
+
+HB.MouseButton1Click:Connect(function() resetBtns() LoadHome() T:Create(HB,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(35,30,15)}):Play() end)
+EB.MouseButton1Click:Connect(function() resetBtns() LoadESP() T:Create(EB,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(35,30,15)}):Play() end)
+
+local FC = Instance.new("Frame", UI) FC.AnchorPoint=Vector2.new(0.5,0.5) FC.Size=UDim2.new(0,fR*2,0,fR*2) FC.Position=UDim2.new(0.5,0,0.5,0) FC.BackgroundTransparency=1 FC.Visible=false
+Instance.new("UICorner", FC).CornerRadius=UDim.new(1,0) local FS=Instance.new("UIStroke",FC) FS.Color=Color3.fromRGB(212,175,55) FS.Thickness=1.5 FS.Transparency=0.3
+
+R.RenderStepped:Connect(function()
+    if not aLock then FC.Visible=false return end
+    FC.Visible=true FC.Size=UDim2.new(0,fR*2,0,fR*2)
+    local cT, sD, c = nil, fR, Cam.ViewportSize/2
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.IgnoreWater = true
+    rayParams.FilterDescendantsInstances = {LP.Character, Cam}
+    for _,p in pairs(P:GetPlayers()) do
+        if p~=LP and p.Character then
+            local h=p.Character:FindFirstChild("Head") local hm=p.Character:FindFirstChildOfClass("Humanoid")
+            if h and hm and hm.Health>0 then
+                local sp, os = Cam:WorldToViewportPoint(h.Position)
+                if os then
+                    local d=(Vector2.new(sp.X,sp.Y)-c).Magnitude
+                    if d<sD then
+                        local canSee=true
+                        if wChk then
+                            local filterList = {LP.Character, Cam}
+                            for _, part in ipairs(p.Character:GetDescendants()) do
+                                if part:IsA("BasePart") then table.insert(filterList, part) end
+                            end
+                            rayParams.FilterDescendantsInstances = filterList
+                            local direction = (h.Position - Cam.CFrame.Position)
+                            local result = workspace:Raycast(Cam.CFrame.Position, direction, rayParams)
+                            if result and not result.Instance:IsDescendantOf(p.Character) then canSee = false end
+                        end
+                        if canSee then sD=d cT=p end
                     end
                 end
             end
         end
     end
-    return c
-end
-
-local function StartAim()
-    Stop()
-    RenderConn = RunService.RenderStepped:Connect(function()
-        if not S.Aim then Stop() return end
-        if not Target or not Target.Parent then Target = GetTarget() end
-        if Target then
-            local pt = Target:FindFirstChild(S.Part)
-            if pt then
-                if Tween then Tween:Cancel() end
-                Tween = TweenService:Create(Cam, TweenInfo.new(S.Smooth, Enum.EasingStyle.Sine), {CFrame = CFrame.lookAt(Cam.CFrame.Position, pt.Position)})
-                Tween:Play()
-            end
-        end
-    end)
-end
-
-local function StartSilent()
-    Stop()
-    local m = LP:GetMouse()
-    if not m then return end
-    
-    -- إصلاح مشكلة الحماية في بعض البرامج
-    local success, mt = pcall(getrawmetatable, game)
-    if success and mt then
-        local old = mt.__index
-        setreadonly(mt, false)
-        mt.__index = newcclosure(function(self, k)
-            if S.Silent and self == m and (k == "Hit" or k == "Target") then
-                local t = Target or GetTarget()
-                if t then
-                    local pt = t:FindFirstChild(S.Part)
-                    if pt then Target = t return pt end
-                end
-            end
-            return old(self, k)
-        end)
-        setreadonly(mt, true)
+    if cT and cT.Character and cT.Character:FindFirstChild("Head") then
+        local targetPos = cT.Character.Head.Position
+        Cam.CFrame = Cam.CFrame:Lerp(CFrame.new(Cam.CFrame.Position, targetPos), 1-aSm)
     end
-    
-    SilentConn = RunService.RenderStepped:Connect(function()
-        if not S.Silent then Stop() return end
-        if not Target or not Target.Parent then Target = GetTarget() end
-    end)
-end
-
-local function RefreshESP()
-    for char, hl in pairs(ESPTab) do
-        if not char.Parent or not hl.Parent then ESPTab[char] = nil else hl.Enabled = S.ESP end
-    end
-    if S.ESP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LP and p.Character and not ESPTab[p.Character] then
-                local hl = Instance.new("Highlight")
-                hl.Adornee = p.Character
-                hl.FillColor = T.Gold
-                hl.FillTransparency = 0.6
-                hl.OutlineColor = T.Glow
-                hl.OutlineTransparency = 0
-                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                hl.Parent = p.Character
-                ESPTab[p.Character] = hl
-            end
-        end
-    end
-end
-
--- الأنترو
-local IG = Instance.new("ScreenGui")
-IG.Name = "Intro" IG.ResetOnSpawn = false IG.IgnoreGuiInset = true IG.DisplayOrder = 999 IG.Parent = PG
-
-local IF = Instance.new("Frame")
-IF.Size = UDim2.fromScale(1,1) IF.BackgroundColor3 = T.Black IF.Parent = IG
-
-local TC = Instance.new("Frame")
-TC.Size = UDim2.new(1,0,0,60) TC.Position = UDim2.new(0,0,0.5,-30) TC.BackgroundTransparency = 1 TC.Parent = IF
-
-local TL = Instance.new("UIListLayout")
-TL.FillDirection = Enum.FillDirection.Horizontal TL.HorizontalAlignment = Enum.HorizontalAlignment.Center TL.VerticalAlignment = Enum.VerticalAlignment.Center TL.Padding = UDim.new(0,5) TL.Parent = TC
-
-local Skip = Instance.new("TextButton")
-Skip.Size = UDim2.new(0,120,0,35) Skip.Position = UDim2.new(0.5,-60,0.8,0) Skip.BackgroundColor3 = T.Dark
-Skip.Text = "SKIP ⏭" Skip.TextColor3 = T.Gold Skip.Font = Enum.Font.GothamBold Skip.TextSize = 14 Skip.Parent = IG
-local SC = Instance.new("UICorner") SC.CornerRadius = UDim.new(0,8) SC.Parent = Skip
-local SS = Instance.new("UIStroke") SS.Color = T.Gold SS.Thickness = 1.5 SS.Parent = Skip
-
-local Finished = false
-local function Finish()
-    if Finished then return end
-    Finished = true
-    TweenService:Create(IF, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
-    for _, v in pairs(TC:GetChildren()) do
-        if v:IsA("TextLabel") then
-            TweenService:Create(v, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
-            local s = v:FindFirstChildOfClass("UIStroke")
-            if s then TweenService:Create(s, TweenInfo.new(0.5), {Transparency = 1}):Play() end
-        end
-    end
-    TweenService:Create(Skip, TweenInfo.new(0.5), {BackgroundTransparency = 1, TextTransparency = 1}):Play()
-    TweenService:Create(SS, TweenInfo.new(0.5), {Transparency = 1}):Play()
-    task.wait(0.6) IG:Destroy()
-end
-Skip.MouseButton1Click:Connect(Finish)
-
-task.spawn(function()
-    local w = "KING SCRIPT"
-    for i = 1, #w do
-        if Finished then break end
-        local ch = w:sub(i,i)
-        if ch ~= " " then
-            local L = Instance.new("TextLabel")
-            L.Size = UDim2.new(0,0,0,0) L.BackgroundTransparency = 1 L.Text = ch L.TextColor3 = T.Gold
-            L.TextSize = 45 L.Font = Enum.Font.GothamBlack L.TextTransparency = 1
-            local str = Instance.new("UIStroke") str.Color = T.Glow str.Thickness = 3 str.Transparency = 1 str.Parent = L
-            L.Parent = TC
-            TweenService:Create(L, TweenInfo.new(0.15, Enum.EasingStyle.Back), {Size = UDim2.new(0,35,1,0), TextTransparency = 0}):Play()
-            TweenService:Create(str, TweenInfo.new(0.15), {Transparency = 0}):Play()
-            task.wait(0.4)
-        else
-            local sp = Instance.new("TextLabel") sp.Size = UDim2.new(0,15,1,0) sp.BackgroundTransparency = 1 sp.Parent = TC
-            task.wait(0.15)
-        end
-    end
-    if not Finished then task.wait(1) Finish() end
 end)
 
--- الواجهة
-local SG = Instance.new("ScreenGui")
-SG.Name = "KingUI" SG.ResetOnSpawn = false SG.Parent = PG
+R.RenderStepped:Connect(function()
+    if not nRec then return end
+    local ch=LP.Character if not ch then return end
+    if Cam:FindFirstChild("CameraShake") then Cam.CameraShake:Destroy() end
+    local t=ch:FindFirstChildOfClass("Tool")
+    if t then for _,o in pairs(t:GetDescendants()) do if o:IsA("NumberValue") then local n=o.Name:lower() if n:find("recoil") or n:find("kick") or n:find("shake") then o.Value=0 end end end end
+    local h=ch:FindFirstChildOfClass("Humanoid") if h then h.CameraOffset=Vector3.new(0,0,0) end
+end)
 
-local MF = Instance.new("Frame")
-MF.Size = UDim2.new(0,500,0,280) MF.Position = UDim2.new(0.5,-250,0.5,-140)
-MF.BackgroundColor3 = T.Black MF.Active = true MF.Draggable = true MF.Parent = SG
-local MC = Instance.new("UICorner") MC.CornerRadius = UDim.new(0,10) MC.Parent = MF
-local MS = Instance.new("UIStroke") MS.Color = T.Gold MS.Thickness = 1.5 MS.Transparency = 0.4 MS.Parent = MF
-
-local TB = Instance.new("Frame") TB.Size = UDim2.new(1,0,0,35) TB.BackgroundColor3 = T.Dark TB.Parent = MF
-local TBC = Instance.new("UICorner") TBC.CornerRadius = UDim.new(0,10) TBC.Parent = TB
-local TCV = Instance.new("Frame") TCV.Size = UDim2.new(1,0,0.5,0) TCV.Position = UDim2.new(0,0,0.5,0) TCV.BackgroundColor3 = T.Dark TCV.Parent = TB
-local TT = Instance.new("TextLabel") TT.Size = UDim2.new(1,-60,1,0) TT.Position = UDim2.new(0,15,0,0) TT.BackgroundTransparency = 1 TT.Text = "👑 King Script" TT.TextColor3 = T.Gold TT.Font = Enum.Font.GothamBold TT.TextSize = 14 TT.TextXAlignment = Enum.TextXAlignment.Left TT.Parent = TB
-
-local MB = Instance.new("TextButton") MB.Size = UDim2.new(0,25,0,25) MB.Position = UDim2.new(1,-35,0.5,-12.5) MB.BackgroundColor3 = T.Light MB.Text = "−" MB.TextColor3 = T.Gold MB.Font = Enum.Font.GothamBold MB.TextSize = 16 MB.Parent = TB
-local MBC = Instance.new("UICorner") MBC.CornerRadius = UDim.new(0,5) MBC.Parent = MB
-
-local SB = Instance.new("Frame") SB.Size = UDim2.new(0,120,1,-45) SB.Position = UDim2.new(0,10,0,40) SB.BackgroundColor3 = T.Dark SB.Parent = MF
-local SBC = Instance.new("UICorner") SBC.CornerRadius = UDim.new(0,8) SBC.Parent = SB
-local SBL = Instance.new("UIListLayout") SBL.Padding = UDim.new(0,5) SBL.HorizontalAlignment = Enum.HorizontalAlignment.Center SBL.Parent = SB
-local SBP = Instance.new("UIPadding") SBP.PaddingTop = UDim.new(0,10) SBP.Parent = SB
-
-local CA = Instance.new("Frame") CA.Size = UDim2.new(1,-140,1,-45) CA.Position = UDim2.new(0,130,0,40) CA.BackgroundColor3 = T.Dark CA.Parent = MF
-local CAC = Instance.new("UICorner") CAC.CornerRadius = UDim.new(0,8) CAC.Parent = CA
-local CAP = Instance.new("UIPadding") CAP.PaddingTop = UDim.new(0,10) CAP.PaddingLeft = UDim.new(0,10) CAP.PaddingRight = UDim.new(0,10) CAP.Parent = CA
-
-local Pages, Tabs = {}, {}
-
-local function Switch(n)
-    for name, page in pairs(Pages) do page.Visible = (name == n) end
-    for name, btn in pairs(Tabs) do
-        btn.BackgroundColor3 = (name == n) and T.Black or T.Light
-        btn.TextColor3 = (name == n) and T.Gold or T.White
-        btn.UIStroke.Transparency = (name == n) and 0 or 1
+R.RenderStepped:Connect(function()
+    if not noSpreadEnabled then return end
+    local ch = LP.Character
+    if not ch then return end
+    local t = ch:FindFirstChildOfClass("Tool")
+    if t then
+        for _, obj in ipairs(t:GetDescendants()) do
+            if obj:IsA("NumberValue") then
+                local n = obj.Name:lower()
+                if n:find("spread") or n:find("deviation") or n:find("inaccuracy") then
+                    obj.Value = 0
+                end
+            end
+        end
     end
-end
+end)
 
-local function MakeTab(n, i, o)
-    local b = Instance.new("TextButton") b.Size = UDim2.new(1,-10,0,30) b.BackgroundColor3 = T.Light b.Text = " "..i.."  "..n b.TextColor3 = T.White b.Font = Enum.Font.GothamBold b.TextSize = 12 b.TextXAlignment = Enum.TextXAlignment.Left b.LayoutOrder = o b.Parent = SB
-    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0,5) c.Parent = b
-    local s = Instance.new("UIStroke") s.Color = T.Gold s.Thickness = 1 s.Transparency = 1 s.Parent = b
-    Tabs[n] = b b.MouseButton1Click:Connect(function() Switch(n) end)
-end
-
-local function MakePage(n)
-    local p = Instance.new("ScrollingFrame") p.Size = UDim2.new(1,0,1,0) p.BackgroundTransparency = 1 p.ScrollBarThickness = 3 p.AutomaticCanvasSize = Enum.AutomaticSize.Y p.Visible = false p.Parent = CA
-    local l = Instance.new("UIListLayout") l.Padding = UDim.new(0,10) l.Parent = p
-    Pages[n] = p
-end
-
-local function MakeToggle(par, txt, def, cb)
-    local f = Instance.new("Frame") f.Size = UDim2.new(1,-20,0,35) f.BackgroundColor3 = T.Black f.Parent = par
-    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0,6) c.Parent = f
-    local l = Instance.new("TextLabel") l.Size = UDim2.new(0.7,0,1,0) l.Position = UDim2.new(0,10,0,0) l.BackgroundTransparency = 1 l.Text = txt l.TextColor3 = T.White l.Font = Enum.Font.Gotham l.TextSize = 12 l.TextXAlignment = Enum.TextXAlignment.Left l.Parent = f
-    local b = Instance.new("TextButton") b.Size = UDim2.new(0,60,0,22) b.Position = UDim2.new(1,-70,0.5,-11) b.BackgroundColor3 = def and T.Gold or T.Light b.Text = def and "ON" or "OFF" b.TextColor3 = def and T.Black or T.White b.Font = Enum.Font.GothamBold b.TextSize = 11 b.Parent = f
-    local bc = Instance.new("UICorner") bc.CornerRadius = UDim.new(0,4) bc.Parent = b
-    local st = def b.MouseButton1Click:Connect(function()
-        st = not st b.Text = st and "ON" or "OFF" b.BackgroundColor3 = st and T.Gold or T.Light b.TextColor3 = st and T.Black or T.White cb(st)
-    end)
-end
-
-local function MakeSlider(par, txt, mn, mx, def, cb)
-    local f = Instance.new("Frame") f.Size = UDim2.new(1,-20,0,45) f.BackgroundColor3 = T.Black f.Parent = par
-    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0,6) c.Parent = f
-    local l = Instance.new("TextLabel") l.Size = UDim2.new(0.6,0,0,20) l.Position = UDim2.new(0,10,0,5) l.BackgroundTransparency = 1 l.Text = txt l.TextColor3 = T.White l.Font = Enum.Font.Gotham l.TextSize = 12 l.TextXAlignment = Enum.TextXAlignment.Left l.Parent = f
-    local v = Instance.new("TextLabel") v.Size = UDim2.new(0.3,0,0,20) v.Position = UDim2.new(0.65,0,0,5) v.BackgroundTransparency = 1 v.Text = tostring(def) v.TextColor3 = T.Gold v.Font = Enum.Font.GothamBold v.TextSize = 12 v.TextXAlignment = Enum.TextXAlignment.Right v.Parent = f
-    local bg = Instance.new("Frame") bg.Size = UDim2.new(1,-20,0,6) bg.Position = UDim2.new(0,10,0,30) bg.BackgroundColor3 = T.Light bg.Parent = f
-    local bgc = Instance.new("UICorner") bgc.CornerRadius = UDim.new(1,0) bgc.Parent = bg
-    local fl = Instance.new("Frame") fl.Size = UDim2.new((def-mn)/(mx-mn),0,1,0) fl.BackgroundColor3 = T.Gold fl.Parent = bg
-    local flc = Instance.new("UICorner") flc.CornerRadius = UDim.new(1,0) flc.Parent = fl
-    local dr = false
-    local function upd(i)
-        local r = math.clamp((i.Position.X - bg.AbsolutePosition.X) / bg.AbsoluteSize.X, 0, 1)
-        local val = mn + (mx - mn) * r
-        fl.Size = UDim2.new(r,0,1,0) v.Text = string.format("%.1f", val) cb(val)
+-- Text ESP (Loot + Health)
+local activeEsp = {}
+local function Esp(p)
+    if p==LP then return end
+    local function onC(c)
+        if c:FindFirstChild("LootESP") then c.LootESP:Destroy() end
+        local hrp = c:WaitForChild("HumanoidRootPart", 5) 
+        if hrp then
+            local b = Instance.new("BillboardGui", hrp) 
+            b.Name = "LootESP" 
+            b.Size = UDim2.new(0, 150, 0, 50) 
+            b.StudsOffset = Vector3.new(0, -3, 0) 
+            b.AlwaysOnTop = true
+            b.Enabled = lootEspEnabled 
+            local container = Instance.new("Frame", b)
+            container.Size = UDim2.new(1,0,1,0)
+            container.BackgroundTransparency = 1
+            activeEsp[p] = b
+            task.spawn(function() 
+                while c.Parent do 
+                    container:ClearAllChildren()
+                    local layout = Instance.new("UIListLayout", container)
+                    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+                    layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+                    layout.Padding = UDim.new(0, 1)
+                    local tools = {}
+                    if p:FindFirstChild("Backpack") then
+                        for _, t in ipairs(p.Backpack:GetChildren()) do
+                            if t:IsA("Tool") and t.Name:lower() ~= "fists" then table.insert(tools, t) end
+                        end
+                    end
+                    for _, t in ipairs(c:GetChildren()) do
+                        if t:IsA("Tool") and t.Name:lower() ~= "fists" then table.insert(tools, t) end
+                    end
+                    for _, tool in ipairs(tools) do
+                        local lbl = Instance.new("TextLabel", container)
+                        lbl.Size = UDim2.new(0, 150, 0, 14)
+                        lbl.BackgroundTransparency = 1
+                        lbl.Text = tool.Name
+                        lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        lbl.TextStrokeTransparency = 0.4
+                        lbl.Font = Enum.Font.GothamBold
+                        lbl.TextSize = 12
+                        lbl.TextScaled = true
+                    end
+                    task.wait(0.5) 
+                end 
+            end)
+        end
+        if c:FindFirstChild("HealthESP") then c.HealthESP:Destroy() end
+        local head = c:WaitForChild("Head", 5)
+        if head then
+            local hb = Instance.new("BillboardGui", head) 
+            hb.Name = "HealthESP" 
+            hb.Size = UDim2.new(0, 100, 0, 20) 
+            hb.StudsOffset = Vector3.new(0, 2.5, 0) 
+            hb.AlwaysOnTop = true
+            hb.Enabled = healthEspEnabled 
+            local healthLbl = Instance.new("TextLabel", hb)
+            healthLbl.Size = UDim2.new(1,0,1,0)
+            healthLbl.BackgroundTransparency = 1
+            healthLbl.TextColor3 = Color3.fromRGB(255, 50, 50)
+            healthLbl.TextStrokeTransparency = 0
+            healthLbl.Font = Enum.Font.GothamBold
+            healthLbl.TextSize = 14
+            healthLbl.TextScaled = true
+            task.spawn(function()
+                while c.Parent do
+                    local hum = c:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        hb.Enabled = healthEspEnabled
+                        if healthEspEnabled then
+                            healthLbl.Text = "❤️ " .. math.floor(hum.Health) .. " / " .. math.floor(hum.MaxHealth)
+                        end
+                    else
+                        hb.Enabled = false
+                    end
+                    task.wait(0.2)
+                end
+            end)
+        end
     end
-    bg.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dr = true upd(i) end end)
-    UserInputService.InputChanged:Connect(function(i) if dr and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then upd(i) end end)
-    UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dr = false end end)
+    if p.Character then onC(p.Character) end 
+    p.CharacterAdded:Connect(onC)
 end
+for _,p in pairs(P:GetPlayers()) do Esp(p) end 
+P.PlayerAdded:Connect(Esp)
 
-MakeTab("Aim", "🎯", 1) MakeTab("ESP", "👁️", 2) MakeTab("Settings", "⚙️", 3)
-MakePage("Aim") MakePage("ESP") MakePage("Settings")
-
-MakeToggle(Pages["Aim"], "Aim Assist", false, function(v) S.Aim = v if v then S.Silent = false StartAim() else Stop() end end)
-MakeToggle(Pages["Aim"], "Silent Aim", false, function(v) S.Silent = v if v then S.Aim = false StartSilent() else Stop() end end)
-MakeSlider(Pages["Aim"], "Range", 50, 600, S.Range, function(v) S.Range = v end)
-MakeSlider(Pages["Aim"], "Smoothness", 0.05, 0.5, S.Smooth, function(v) S.Smooth = v end)
-MakeToggle(Pages["ESP"], "Player ESP", false, function(v) S.ESP = v RefreshESP() end)
-
-local inf = Instance.new("TextLabel") inf.Size = UDim2.new(1,-20,0,60) inf.BackgroundColor3 = T.Black inf.Text = "King Script v1.4\nSilent Aim Active" inf.TextColor3 = T.Gray inf.Font = Enum.Font.Gotham inf.TextSize = 12 inf.Parent = Pages["Settings"]
-local infc = Instance.new("UICorner") infc.CornerRadius = UDim.new(0,6) infc.Parent = inf
-
-Switch("Aim")
-
-local Min = false
-MB.MouseButton1Click:Connect(function()
-    Min = not Min
-    TweenService:Create(MF, TweenInfo.new(0.3), {Size = Min and UDim2.new(0,500,0,35) or UDim2.new(0,500,0,280)}):Play()
-    SB.Visible = not Min CA.Visible = not Min MB.Text = Min and "+" or "−"
+task.spawn(function()
+    while task.wait(0.5) do
+        for _, b in pairs(activeEsp) do
+            if b and b.Parent then b.Enabled = lootEspEnabled end
+        end
+    end
 end)
